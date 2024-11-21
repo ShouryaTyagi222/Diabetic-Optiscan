@@ -8,9 +8,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
 # model_ft = torch.load('clip_finetuned_entire_model.pth')
+train_path = '/teamspace/studios/this_studio/wavelet_train_data.csv'
 # model_ft.to(device)
 import pandas as pd
-subcategories = list(pd.read_csv('train_data.csv')['label'].unique())
+subcategories = list(pd.read_csv(train_path)['label'].unique())
 from torchvision import transforms
 from torch.utils.data import Dataset
 
@@ -26,9 +27,9 @@ class DiabeticRetinopathyDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        img_name = self.data.iloc[idx, 1]
+        img_name = self.data.iloc[idx, 0]
         image = Image.open(img_name).convert("RGB")
-        label_str = self.data.iloc[idx, 2]
+        label_str = self.data.iloc[idx, 1]
         label = subcategories.index(label_str)
 
         if self.transform:
@@ -40,12 +41,12 @@ class DiabeticRetinopathyDataset(Dataset):
 from torch.utils.data import DataLoader
 
 # Create DataLoader for training and validation sets
-dataset = DiabeticRetinopathyDataset(csv_file='/teamspace/studios/this_studio/diabetic_retinopathy/train_data.csv',
+dataset = DiabeticRetinopathyDataset(csv_file=train_path,
                                      transform=preprocess)
-train_loader = DataLoader(dataset, batch_size=64, shuffle=True)
-dataset = DiabeticRetinopathyDataset(csv_file='/teamspace/studios/this_studio/diabetic_retinopathy/train_data.csv',
+train_loader = DataLoader(dataset, batch_size=64)
+dataset = DiabeticRetinopathyDataset(csv_file=train_path,
                                      transform=preprocess)
-val_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+val_loader = DataLoader(dataset, batch_size=128)
 
 import torch.nn as nn
 
@@ -63,7 +64,8 @@ class CLIPFineTuner(nn.Module):
         
 num_classes = len(subcategories)
 model_ft = CLIPFineTuner(model, num_classes).to(device)
-model_ft.load_state_dict(torch.load('clip_finetuned.pth', map_location=device))
+model_path = ''
+# model_ft.load_state_dict(torch.load(model_path, map_location=device))
 
 
 import torch.optim as optim
@@ -72,11 +74,10 @@ import torch.optim as optim
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model_ft.classifier.parameters(), lr=1e-4)
 
-
 from tqdm import tqdm
 
 # Number of epochs for training
-num_epochs = 100
+num_epochs = 150
 with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
     f.write('\nCLIP\n')
 # Training loop
@@ -103,21 +104,21 @@ for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}\n')
 
     # Validation
-    model_ft.eval()  # Set the model to evaluation mode
-    correct = 0  # Initialize correct predictions counter
-    total = 0  # Initialize total samples counter
+    # model_ft.eval()  # Set the model to evaluation mode
+    # correct = 0  # Initialize correct predictions counter
+    # total = 0  # Initialize total samples counter
     
-    with torch.no_grad():  # Disable gradient calculation for validation
-        for images, labels in val_loader:
-            images, labels = images.to(device), labels.to(device)  # Move images and labels to the device
-            outputs = model_ft(images)  # Forward pass: compute predicted outputs by passing inputs to the model
-            _, predicted = torch.max(outputs.data, 1)  # Get the class label with the highest probability
-            total += labels.size(0)  # Update total samples
-            correct += (predicted == labels).sum().item()  # Update correct predictions
+    # with torch.no_grad():  # Disable gradient calculation for validation
+    #     for images, labels in val_loader:
+    #         images, labels = images.to(device), labels.to(device)  # Move images and labels to the device
+    #         outputs = model_ft(images)  # Forward pass: compute predicted outputs by passing inputs to the model
+    #         _, predicted = torch.max(outputs.data, 1)  # Get the class label with the highest probability
+    #         total += labels.size(0)  # Update total samples
+    #         correct += (predicted == labels).sum().item()  # Update correct predictions
 
-    print(f'Validation Accuracy: {100 * correct / total}%')
-    with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
-        f.write(f'Validation Accuracy: {100 * correct / total}%\n')
+    # print(f'Validation Accuracy: {100 * correct / total}%')
+    # with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
+    #     f.write(f'Validation Accuracy: {100 * correct / total}%\n')
 
 # Save the fine-tuned model
-torch.save(model_ft.state_dict(), 'clip_finetuned.pth')
+torch.save(model_ft.state_dict(), 'clip_finetuned_wavelet.pth')

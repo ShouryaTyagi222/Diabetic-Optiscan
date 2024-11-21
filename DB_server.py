@@ -59,17 +59,13 @@ async def testing():
 
 
 @app.post("/members")
-async def members(file: UploadFile = File(...), name: str = Form(...), age: str = Form(...)):
+async def members(file: UploadFile = File(...) ,gender : str = Form(...), other_diseases: str = Form(...), age: str = Form(...), pregnant: str = Form(...)):
     try:
         image = Image.open(io.BytesIO(await file.read()))
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
         prediction = predict(image)
-        return JSONResponse(content={
-            "Output Generated": prediction,
-            "name": name,
-            "age": age
-        })
+        return JSONResponse(content={"op" : f'The Person Aged {age} {gender} having {other_diseases} who is also {pregnant} suffers from {prediction} diabetic retinopathy disease'})
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=400)
 

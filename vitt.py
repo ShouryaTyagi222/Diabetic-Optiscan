@@ -8,7 +8,8 @@ feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 import pandas as pd
-categories = list(pd.read_csv('train_data.csv')['label'].unique())
+train_path = '/teamspace/studios/this_studio/wavelet_train_data.csv'
+categories = list(pd.read_csv(train_path)['label'].unique())
 from torch.utils.data import Dataset
 
 
@@ -23,9 +24,9 @@ class DiabeticRetinopathyDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        img_name = self.data.iloc[idx, 1]
+        img_name = self.data.iloc[idx, 0]
         image = Image.open(img_name).convert("RGB")
-        label_str = self.data.iloc[idx, 2]
+        label_str = self.data.iloc[idx, 1]
         label = categories.index(label_str)
 
         return image, label
@@ -40,10 +41,10 @@ def collate_fn(batch):
 from torch.utils.data import DataLoader
 
 # Create DataLoader for training and validation sets
-dataset = DiabeticRetinopathyDataset(csv_file='/teamspace/studios/this_studio/diabetic_retinopathy/train_data.csv',)
-train_loader = DataLoader(dataset, batch_size=64, collate_fn=collate_fn, shuffle=True)
-dataset = DiabeticRetinopathyDataset(csv_file='/teamspace/studios/this_studio/diabetic_retinopathy/train_data.csv')
-val_loader = DataLoader(dataset, batch_size=128, collate_fn=collate_fn, shuffle=False)
+dataset = DiabeticRetinopathyDataset(csv_file=train_path)
+train_loader = DataLoader(dataset, batch_size=64, collate_fn=collate_fn)
+dataset = DiabeticRetinopathyDataset(csv_file=train_path)
+val_loader = DataLoader(dataset, batch_size=128, collate_fn=collate_fn)
 
 import torch.nn as nn
         
@@ -59,9 +60,11 @@ model = ViTForImageClassification.from_pretrained(
 )
 
 import os
-if os.path.exists('/teamspace/studios/this_studio/diabetic_retinopathy/vit_finetuned.pth'):
-    print('Loading the Pretrained model')
-    model.load_state_dict(torch.load('/teamspace/studios/this_studio/diabetic_retinopathy/vit_finetuned.pth'))
+
+# model_path = '/teamspace/studios/this_studio/vit_finetuned_original.pth'
+# if os.path.exists(model_path):
+#     print('Loading the Pretrained model')
+#     model.load_state_dict(torch.load(model_path))
 
 model.to(device)
 import torch.optim as optim
@@ -74,7 +77,7 @@ optimizer = optim.Adam(model.classifier.parameters(), lr=2e-5)
 from tqdm import tqdm
 
 # Number of epochs for training
-num_epochs = 5
+num_epochs = 50
 with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
     f.write('\nVIT\n')
 # Training loop
@@ -102,21 +105,24 @@ for epoch in range(num_epochs):
             f.write(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}\n')
 
     # Validation
-    model.eval()  # Set the model to evaluation mode
-    correct = 0  # Initialize correct predictions counter
-    total = 0  # Initialize total samples counter
+    # model.eval()  # Set the model to evaluation mode
+    # correct = 0  # Initialize correct predictions counter
+    # total = 0  # Initialize total samples counter
     
-    with torch.no_grad():  # Disable gradient calculation for validation
-        for images, labels in val_loader:
-            images, labels = images.to(device), labels.to(device)  # Move images and labels to the device
-            outputs = model(images)  # Forward pass: compute predicted outputs by passing inputs to the model
-            _, predicted = torch.max(outputs.logits, 1)  # Get the class label with the highest probability
-            total += labels.size(0)  # Update total samples
-            correct += (predicted == labels).sum().item()  # Update correct predictions
+    # with torch.no_grad():  # Disable gradient calculation for validation
+    #     for images, labels in val_loader:
+    #         images, labels = images.to(device), labels.to(device)  # Move images and labels to the device
+    #         outputs = model(images)  # Forward pass: compute predicted outputs by passing inputs to the model
+    #         _, predicted = torch.max(outputs.logits, 1)  # Get the class label with the highest probability
+    #         total += labels.size(0)  # Update total samples
+    #         correct += (predicted == labels).sum().item()  # Update correct predictions
 
-    print(f'Validation Accuracy: {100 * correct / total}%')
-    with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
-        f.write(f'Validation Accuracy: {100 * correct / total}%\n')
+    # print(f'Validation Accuracy: {100 * correct / total}%')
+    # with open('/teamspace/studios/this_studio/diabetic_retinopathy/log.txt', 'a') as f:
+    #     f.write(f'Validation Accuracy: {100 * correct / total}%\n')
 
     # Save the fine-tuned model
-    torch.save(model.state_dict(), 'vit_finetuned.pth')
+    torch.save(model.state_dict(), 'vit_finetuned_wavelet.pth')
+
+# python /teamspace/studios/this_studio/diabetic_retinopathy/vitt.py
+# python /teamspace/studios/this_studio/diabetic_retinopathy/vitt_cat.py
